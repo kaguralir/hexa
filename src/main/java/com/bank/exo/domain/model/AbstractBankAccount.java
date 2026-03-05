@@ -38,8 +38,20 @@ public abstract class AbstractBankAccount {
         this.overdraftLimit = amount;
     }
 
-    public boolean isSavingsAccount() {
-        return this instanceof SavingsAccount;
+    /**
+     * Changement SOLID (OCP): chaque type de compte porte ses propres règles métier.
+     * Le service applicatif n'a plus besoin de "instanceof" pour valider dépôt/retrait.
+     */
+    public abstract void assertCanDeposit(BigDecimal amount);
+
+    public abstract void assertCanWithdraw(BigDecimal amount);
+
+    /**
+     * Changement API/mapper: contrat polymorphique pour exposer la limite de dépôt
+     * uniquement quand le type de compte le supporte.
+     */
+    public BigDecimal depositLimitOrNull() {
+        return null;
     }
 
     public abstract String accountTypeLabel();
