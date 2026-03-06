@@ -1,39 +1,40 @@
 package com.bank.exo.domain.model;
 
-import com.bank.exo.constant.AccountType;
-import com.bank.exo.exception.InsufficientFundsException;
-import com.bank.exo.exception.SavingsAccountLimitException;
+import com.bank.exo.domain.AccountType;
+import com.bank.exo.domain.exception.DepositLimitExceededException;
+import com.bank.exo.domain.exception.InsufficientFundsException;
+import com.bank.exo.domain.valueobject.Amount;
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Getter
 public class SavingsAccount extends AbstractBankAccount {
-    private final BigDecimal depositLimit;
+    private final BigDecimal depositCeiling;
 
-    public SavingsAccount(Long id, String accountNumber, BigDecimal balance, BigDecimal depositLimit) {
+    public SavingsAccount(Long id, String accountNumber, BigDecimal balance, BigDecimal depositCeiling) {
         super(id, accountNumber, balance, null);
-        this.depositLimit = depositLimit;
+        this.depositCeiling = depositCeiling;
     }
 
-
     @Override
-    public void assertCanDeposit(BigDecimal amount) {
-        if (getBalance().add(amount).compareTo(depositLimit) > 0) {
-            throw new SavingsAccountLimitException();
+    public void assertCanDeposit(Amount amount) {
+        if (getBalance().add(amount.value()).compareTo(depositCeiling) > 0) {
+            throw new DepositLimitExceededException();
         }
     }
 
     @Override
-    public void assertCanWithdraw(BigDecimal amount) {
-        if (amount.compareTo(getBalance()) > 0) {
+    public void assertCanWithdraw(Amount amount) {
+        if (amount.value().compareTo(getBalance()) > 0) {
             throw new InsufficientFundsException();
         }
     }
 
     @Override
-    public BigDecimal depositLimitOrNull() {
-        return depositLimit;
+    public Optional<BigDecimal> depositLimit() {
+        return Optional.of(depositCeiling);
     }
 
     @Override

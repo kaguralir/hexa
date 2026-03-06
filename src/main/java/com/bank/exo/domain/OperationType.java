@@ -1,5 +1,4 @@
-package com.bank.exo.constant;
-
+package com.bank.exo.domain;
 
 import lombok.Getter;
 
@@ -13,5 +12,4 @@ public enum OperationType {
     OperationType(String label) {
         this.label = label;
     }
-
 }

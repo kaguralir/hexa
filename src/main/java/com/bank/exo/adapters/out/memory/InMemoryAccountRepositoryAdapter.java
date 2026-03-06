@@ -2,6 +2,7 @@ package com.bank.exo.adapters.out.memory;
 
 import com.bank.exo.application.port.out.AccountRepositoryPort;
 import com.bank.exo.domain.model.AbstractBankAccount;
+import com.bank.exo.domain.model.SavingsAccount;
 import org.springframework.stereotype.Repository;
 
 import java.util.Map;
@@ -18,7 +19,6 @@ public class InMemoryAccountRepositoryAdapter implements AccountRepositoryPort {
     @Override
     public AbstractBankAccount save(AbstractBankAccount account) {
         if (account.getId() == null) {
-            // Changement: génération d'id côté adapter de persistance, sans dépendance JPA.
             account.assignId(sequence.incrementAndGet());
         }
         storage.put(account.getId(), account);
@@ -31,7 +31,14 @@ public class InMemoryAccountRepositoryAdapter implements AccountRepositoryPort {
     }
 
     @Override
-    public void deleteAll() {
+    public Optional<SavingsAccount> findSavingsAccountById(Long id) {
+        return Optional.ofNullable(storage.get(id))
+                .filter(a -> a instanceof SavingsAccount)
+                .map(a -> (SavingsAccount) a);
+    }
+
+    /** For test isolation only — not part of the domain port contract. */
+    public void reset() {
         storage.clear();
         sequence.set(0);
     }

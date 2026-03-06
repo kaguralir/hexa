@@ -1,9 +1,12 @@
 package com.bank.exo.domain.model;
 
+import com.bank.exo.domain.exception.OverdraftNotAllowedException;
+import com.bank.exo.domain.valueobject.Amount;
 import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.Optional;
 
 @Getter
 public abstract class AbstractBankAccount {
@@ -19,6 +22,10 @@ public abstract class AbstractBankAccount {
         this.overdraftLimit = overdraftLimit;
     }
 
+    /**
+     * Called by the persistence adapter after ID generation.
+     * Only takes effect once — subsequent calls are no-ops.
+     */
     public void assignId(Long id) {
         if (this.id != null) {
             return;
@@ -26,12 +33,12 @@ public abstract class AbstractBankAccount {
         this.id = id;
     }
 
-    public void addToBalance(BigDecimal amount) {
-        this.balance = this.balance.add(amount);
+    public void addToBalance(Amount amount) {
+        this.balance = this.balance.add(amount.value());
     }
 
-    public void subtractFromBalance(BigDecimal amount) {
-        this.balance = this.balance.subtract(amount);
+    public void subtractFromBalance(Amount amount) {
+        this.balance = this.balance.subtract(amount.value());
     }
 
     public void updateOverdraftLimit(BigDecimal amount) {
@@ -39,19 +46,26 @@ public abstract class AbstractBankAccount {
     }
 
     /**
-     * Changement SOLID (OCP): chaque type de compte porte ses propres règles métier.
-     * Le service applicatif n'a plus besoin de "instanceof" pour valider dépôt/retrait.
+     * Each account subtype carries its own deposit rules (OCP).
+     * The use case delegates to the entity — no instanceof needed.
      */
-    public abstract void assertCanDeposit(BigDecimal amount);
+    public abstract void assertCanDeposit(Amount amount);
 
-    public abstract void assertCanWithdraw(BigDecimal amount);
+    public abstract void assertCanWithdraw(Amount amount);
 
     /**
-     * Changement API/mapper: contrat polymorphique pour exposer la limite de dépôt
-     * uniquement quand le type de compte le supporte.
+     * Default: overdraft updates are forbidden.
+     * CurrentAccount overrides to allow it.
      */
-    public BigDecimal depositLimitOrNull() {
-        return null;
+    public void assertCanUpdateOverdraft() {
+        throw new OverdraftNotAllowedException();
+    }
+
+    /**
+     * Returns the deposit ceiling when the account type enforces one.
+     */
+    public Optional<BigDecimal> depositLimit() {
+        return Optional.empty();
     }
 
     public abstract String accountTypeLabel();

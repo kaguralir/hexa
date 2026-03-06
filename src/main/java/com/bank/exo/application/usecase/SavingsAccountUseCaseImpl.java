@@ -2,59 +2,55 @@ package com.bank.exo.application.usecase;
 
 import com.bank.exo.application.port.in.SavingsAccountUseCase;
 import com.bank.exo.application.port.out.AccountRepositoryPort;
-import com.bank.exo.application.port.out.OperationRepositoryPort;
-import com.bank.exo.constant.OperationType;
+import com.bank.exo.application.service.AccountLoader;
+import com.bank.exo.application.service.OperationRecorder;
+import com.bank.exo.domain.OperationType;
 import com.bank.exo.domain.model.AbstractBankAccount;
 import com.bank.exo.domain.model.SavingsAccount;
-import com.bank.exo.exception.BankAccountNotFoundException;
+import com.bank.exo.domain.valueobject.Amount;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
-public class SavingsAccountUseCaseImpl extends AbstractAccountUseCaseSupport implements SavingsAccountUseCase {
+public class SavingsAccountUseCaseImpl implements SavingsAccountUseCase {
 
-    private static final BigDecimal DEFAULT_LIMIT = BigDecimal.valueOf(22950);
+    private static final BigDecimal DEFAULT_CEILING = BigDecimal.valueOf(22950);
+
+    private final AccountRepositoryPort accountRepository;
+    private final AccountLoader accountLoader;
+    private final OperationRecorder operationRecorder;
 
     public SavingsAccountUseCaseImpl(AccountRepositoryPort accountRepository,
-                                     OperationRepositoryPort operationRepository) {
-        super(accountRepository, operationRepository);
+                                     AccountLoader accountLoader,
+                                     OperationRecorder operationRecorder) {
+        this.accountRepository = accountRepository;
+        this.accountLoader = accountLoader;
+        this.operationRecorder = operationRecorder;
     }
 
     @Override
     public AbstractBankAccount create() {
-        SavingsAccount account = new SavingsAccount(null, UUID.randomUUID().toString(), BigDecimal.ZERO, DEFAULT_LIMIT);
-        return save(account);
+        SavingsAccount account = new SavingsAccount(null, UUID.randomUUID().toString(), BigDecimal.ZERO, DEFAULT_CEILING);
+        return accountRepository.save(account);
     }
 
     @Override
-    public AbstractBankAccount deposit(Long id, BigDecimal amount) {
-        validateAmount(amount);
-        SavingsAccount account = findSavingsAccount(id);
-
+    public AbstractBankAccount deposit(Long id, Amount amount) {
+        SavingsAccount account = accountLoader.findSavingsAccountById(id);
         account.assertCanDeposit(amount);
         account.addToBalance(amount);
-        saveOperation(account.getId(), amount, OperationType.DEPOSIT);
-        return save(account);
+        operationRecorder.record(account.getId(), amount, OperationType.DEPOSIT);
+        return accountRepository.save(account);
     }
 
     @Override
-    public AbstractBankAccount withdraw(Long id, BigDecimal amount) {
-        validateAmount(amount);
-        SavingsAccount account = findSavingsAccount(id);
-
+    public AbstractBankAccount withdraw(Long id, Amount amount) {
+        SavingsAccount account = accountLoader.findSavingsAccountById(id);
         account.assertCanWithdraw(amount);
         account.subtractFromBalance(amount);
-        saveOperation(account.getId(), amount, OperationType.WITHDRAWAL);
-        return save(account);
-    }
-
-    private SavingsAccount findSavingsAccount(Long id) {
-        AbstractBankAccount account = findAccount(id);
-        if (!(account instanceof SavingsAccount savingsAccount)) {
-            throw new BankAccountNotFoundException();
-        }
-        return savingsAccount;
+        operationRecorder.record(account.getId(), amount, OperationType.WITHDRAWAL);
+        return accountRepository.save(account);
     }
 }

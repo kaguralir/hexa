@@ -8,14 +8,12 @@ import org.springframework.stereotype.Component;
 public class AccountRestMapper {
 
     public AccountResponseDto toDto(AbstractBankAccount account) {
-        // Changement: on expose un DTO dédié pour éviter de renvoyer le modèle de domaine brut depuis l'API.
-        // Changement: mapping piloté par un contrat polymorphique du domaine (sans instanceof).
         return AccountResponseDto.builder()
                 .id(account.getId())
                 .accountNumber(account.getAccountNumber())
                 .balance(account.getBalance())
                 .overdraftLimit(account.getOverdraftLimit())
-                .depositLimit(account.depositLimitOrNull())
+                .depositLimit(account.depositLimit().orElse(null))
                 .accountType(account.accountTypeLabel())
                 .build();
     }

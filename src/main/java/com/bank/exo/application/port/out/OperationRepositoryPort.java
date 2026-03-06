@@ -9,5 +9,4 @@ public interface OperationRepositoryPort {
 
     List<Operation> findByAccountId(Long accountId);
 
-    void deleteAll();
 }
