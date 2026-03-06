@@ -1,8 +1,9 @@
 package com.bank.exo.domain.model;
 
-import com.bank.exo.constant.AccountType;
-import com.bank.exo.exception.InsufficientFundsException;
-import com.bank.exo.exception.OverdraftLimitException;
+import com.bank.exo.domain.AccountType;
+import com.bank.exo.domain.exception.InsufficientFundsException;
+import com.bank.exo.domain.exception.OverdraftLimitExceededException;
+import com.bank.exo.domain.valueobject.Amount;
 
 import java.math.BigDecimal;
 
@@ -13,13 +14,13 @@ public class CurrentAccount extends AbstractBankAccount {
     }
 
     @Override
-    public void assertCanDeposit(BigDecimal amount) {
-        // Pas de contrainte spécifique côté compte courant.
+    public void assertCanDeposit(Amount amount) {
+        // No deposit ceiling on current accounts.
     }
 
     @Override
-    public void assertCanWithdraw(BigDecimal amount) {
-        if (amount.compareTo(getBalance()) <= 0) {
+    public void assertCanWithdraw(Amount amount) {
+        if (amount.value().compareTo(getBalance()) <= 0) {
             return;
         }
 
@@ -27,10 +28,15 @@ public class CurrentAccount extends AbstractBankAccount {
             throw new InsufficientFundsException();
         }
 
-        BigDecimal finalBalance = getBalance().subtract(amount);
+        BigDecimal finalBalance = getBalance().subtract(amount.value());
         if (finalBalance.compareTo(getOverdraftLimit().negate()) < 0) {
-            throw new OverdraftLimitException();
+            throw new OverdraftLimitExceededException();
         }
+    }
+
+    @Override
+    public void assertCanUpdateOverdraft() {
+        // Allowed for current accounts — no exception thrown.
     }
 
     @Override

@@ -1,10 +1,11 @@
 package com.bank.exo;
 
-import com.bank.exo.application.port.out.AccountRepositoryPort;
-import com.bank.exo.application.port.out.OperationRepositoryPort;
-import com.bank.exo.constant.OperationType;
+import com.bank.exo.adapters.out.memory.InMemoryAccountRepositoryAdapter;
+import com.bank.exo.adapters.out.memory.InMemoryOperationRepositoryAdapter;
+import com.bank.exo.domain.OperationType;
 import com.bank.exo.domain.model.CurrentAccount;
 import com.bank.exo.domain.model.Operation;
+import com.bank.exo.domain.valueobject.Amount;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,14 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Tests d'intégration "end-to-end applicatif".
- *
- * Ici on ne mocke pas les ports: on veut valider le câblage complet
- * controller -> use case -> adapter mémoire -> mapper JSON.
- *
- * Valeur ajoutée:
- * - Détecte les erreurs de configuration Spring / routing REST.
- * - Vérifie les contrats API visibles par les clients.
+ * End-to-end integration tests: controller → use case → in-memory adapter → JSON response.
+ * Concrete adapter types are injected for test reset — keeping the domain port contract clean.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -41,29 +36,28 @@ class BankAccountIntegrationTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private AccountRepositoryPort accountRepository;
+    private InMemoryAccountRepositoryAdapter accountRepository;
 
     @Autowired
-    private OperationRepositoryPort operationRepository;
+    private InMemoryOperationRepositoryAdapter operationRepository;
 
     @BeforeEach
     void setUp() {
-        // Isolation stricte: chaque test démarre sans état partagé.
-        accountRepository.deleteAll();
-        operationRepository.deleteAll();
+        accountRepository.reset();
+        operationRepository.reset();
     }
 
     @Test
-    @DisplayName("POST /api/accounts/create retourne un compte initialisé")
+    @DisplayName("POST /api/accounts returns an initialized account")
     void should_create_account() throws Exception {
-        mockMvc.perform(post("/api/accounts/create"))
+        mockMvc.perform(post("/api/accounts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(0))
                 .andExpect(jsonPath("$.accountNumber").isNotEmpty());
     }
 
     @Test
-    @DisplayName("POST /deposit crédite le compte et retourne le nouvel état")
+    @DisplayName("POST /deposit credits the account and returns the new state")
     void should_deposit_successfully() throws Exception {
         CurrentAccount account = new CurrentAccount(null, UUID.randomUUID().toString(), BigDecimal.ZERO, null);
         account = (CurrentAccount) accountRepository.save(account);
@@ -76,28 +70,28 @@ class BankAccountIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET /statement renvoie uniquement les opérations du dernier mois triées desc")
+    @DisplayName("GET /statement returns only last-month operations sorted desc")
     void should_get_statement_successfully() throws Exception {
         CurrentAccount account = new CurrentAccount(null, UUID.randomUUID().toString(), BigDecimal.valueOf(591.02), null);
         account = (CurrentAccount) accountRepository.save(account);
 
         operationRepository.save(Operation.builder()
                 .accountId(account.getId())
-                .amount(BigDecimal.valueOf(500.50))
+                .amount(Amount.of(BigDecimal.valueOf(500.50)))
                 .type(OperationType.DEPOSIT)
                 .date(LocalDateTime.now().minusDays(15))
                 .build());
 
         operationRepository.save(Operation.builder()
                 .accountId(account.getId())
-                .amount(BigDecimal.valueOf(90.52))
+                .amount(Amount.of(BigDecimal.valueOf(90.52)))
                 .type(OperationType.DEPOSIT)
                 .date(LocalDateTime.now().minusDays(2))
                 .build());
 
         operationRepository.save(Operation.builder()
                 .accountId(account.getId())
-                .amount(BigDecimal.valueOf(10))
+                .amount(Amount.of(BigDecimal.valueOf(10)))
                 .type(OperationType.DEPOSIT)
                 .date(LocalDateTime.now().minusMonths(2))
                 .build());
@@ -105,7 +99,7 @@ class BankAccountIntegrationTest {
         mockMvc.perform(get("/api/accounts/" + account.getId() + "/statement"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(591.02))
-                .andExpect(jsonPath("$.operationDtos.length()").value(2))
-                .andExpect(jsonPath("$.operationDtos[0].amount").value(90.52));
+                .andExpect(jsonPath("$.operations.length()").value(2))
+                .andExpect(jsonPath("$.operations[0].amount").value(90.52));
     }
 }

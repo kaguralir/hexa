@@ -32,8 +32,8 @@ public class InMemoryOperationRepositoryAdapter implements OperationRepositoryPo
         return operations.stream().filter(op -> op.getAccountId().equals(accountId)).toList();
     }
 
-    @Override
-    public void deleteAll() {
+    /** For test isolation only — not part of the domain port contract. */
+    public void reset() {
         operations.clear();
         sequence.set(0);
     }
